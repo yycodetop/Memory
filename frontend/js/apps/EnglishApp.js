@@ -17,6 +17,7 @@ export default {
     emits: ['selectBook', 'createBook', 'updateBook', 'deleteBook', 'exportBook', 'addWord', 'updateWord', 'deleteWord', 'upload', 'download', 'request-recitation'],
     
     setup(props, { emit }) {
+        const API_BASE = `http://${window.location.hostname}:3000/api`;
         const { speak, speakQueue, stop: stopSpeaking, voices, selectedVoiceURI, rate: ttsRate, isSpeaking } = useTTS();
 
         // --- 1. 顶部过滤与分类状态 ---
@@ -58,7 +59,7 @@ export default {
         const decodedWords = ref(new Set());
         const fetchDecodedWords = async () => {
             try {
-                const res = await fetch('/api/ai/decoded-words');
+                const res = await fetch(`${API_BASE}/ai/decoded-words`);
                 if (res.ok) {
                     const words = await res.json();
                     decodedWords.value = new Set(words);
@@ -174,7 +175,7 @@ export default {
 
         const loadMistakesData = async () => {
             try {
-                const res = await fetch('/api/vocabulary/mistakes');
+                const res = await fetch(`${API_BASE}/vocabulary/mistakes`);
                 const mistakes = await res.json();
                 mistakeList.value = mistakes;
                 const todayStr = new Date().toISOString().split('T')[0];
@@ -194,7 +195,7 @@ export default {
         const logMistake = async (item) => {
             if (!item || isEbbinghausReview.value) return; 
             try {
-                await fetch('/api/vocabulary/mistakes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ word: item.word, meaning: item.meaning, bookId: item.bookId }) });
+                await fetch(`${API_BASE}/vocabulary/mistakes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ word: item.word, meaning: item.meaning, bookId: item.bookId }) });
                 loadMistakesData(); 
             } catch (e) { }
         };
@@ -242,7 +243,7 @@ export default {
             };
 
             try {
-                const res = await fetch('/api/ai/memory-decoder', {
+                const res = await fetch(`${API_BASE}/ai/memory-decoder`,{
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ word: wordStr })

@@ -201,7 +201,7 @@ const app = createApp({
     </div>
     `,
     setup() {
-        const API_BASE = 'http://localhost:3000/api';
+        const API_BASE = `http://${window.location.hostname}:3000/api`;
         
         // 初始化各业务模块
         const taskModule = useTasks(API_BASE);

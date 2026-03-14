@@ -7,7 +7,7 @@ export default {
     },
     emits: ['create-ebbinghaus-task'], // [新增] 声明触发创建复习计划的事件
     setup(props, { emit }) {
-        const API_BASE = 'http://localhost:3000/api';
+        const API_BASE = `http://${window.location.hostname}:3000/api`;
         const logs = ref([]);
         const showModal = ref(false);
         const isEditing = ref(false);

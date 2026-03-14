@@ -17,7 +17,7 @@ const writeCache = (data) => fs.writeFileSync(CACHE_FILE, JSON.stringify(data, n
 // 请确保换成您的 API Key
 const AI_API_KEY = 'sk-f6616d15718b46f8921bf2bc5ddf92eb'; 
 const openai = new OpenAI({
-    baseURL: 'https://api.deepseek.com',
+    baseURL: 'https://api.deepseek.com/v1',
     // baseURL:'https://api.deepseek.com/v3.2_speciale_expires_on_20251215',
     apiKey: AI_API_KEY
 });

@@ -338,11 +338,9 @@ export default {
 
         const formatImageUrl = (url) => {
             if (!url) return '';
-            // 如果是后端传来的相对路径，拼上后端的绝对地址
             if (url.startsWith('/uploads/')) {
-                return `http://localhost:3000${url}`;
+                return `http://${window.location.hostname}:3000${url}`;
             }
-            // 如果是刚刚上传预览的 base64 格式，直接返回
             return url;
         };
         // --- 排序逻辑 ---

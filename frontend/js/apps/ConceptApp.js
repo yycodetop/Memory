@@ -781,7 +781,7 @@ export default {
             const formData = new FormData();
             formData.append('file', file);
             try {
-                const res = await fetch('/api/concepts/upload', { method: 'POST', body: formData });
+                const res = await fetch('http://${window.location.hostname}:3000/api/concepts/upload', { method: 'POST', body: formData });
                 const data = await res.json();
                 if (data.success) { alert(`✅ 成功导入 ${data.count} 条！`); emit('refresh'); } else alert('❌ ' + data.message);
             } catch (e) { alert('⚠️ 上传错误'); }
