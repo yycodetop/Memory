@@ -3,6 +3,7 @@
  * 更新：注册 concepts 路由
  */
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const app = express();
@@ -10,7 +11,9 @@ const PORT = 3000;
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' })); // 支持大文件上传（如图片Base64）
-app.use(express.static(__dirname));
+//app.use(express.static(__dirname));
+// 专门开放 uploads 文件夹作为静态资源目录
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- 注册路由 ---
 app.use('/api/data', require('./routes/tasks'));

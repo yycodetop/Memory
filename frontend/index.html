@@ -1,51 +1,61 @@
-/**
- * js/main.js
- * 应用主入口 - 迭代版 v3.3
- * 修复：解决首页(Dashboard)图片遮挡快捷入口点击无效的问题 (指令重定向)
- */
-import { createApp, ref, computed, onMounted } from 'vue';
-
-// 导入业务模块
-import { useTasks } from './composables/useTasks.js';
-import { useVocabulary } from './composables/useVocabulary.js';
-import { usePomodoro } from './composables/usePomodoro.js';
-import { useConcepts } from './composables/useConcepts.js';
-import { useFeynman } from './composables/useFeynman.js';
-import { useImageOcclusion } from './composables/useImageOcclusion.js';
-
-// 导入组件
-import DashboardApp from './apps/DashboardApp.js';
-import EnglishApp from './apps/EnglishApp.js';
-import ConceptApp from './apps/ConceptApp.js';
-import FeynmanApp from './apps/FeynmanApp.js';
-import ImageOcclusionApp from './apps/ImageOcclusionApp.js'; 
-import TheDock from './components/TheDock.js';
-import MistakeApp from './apps/MistakeApp.js';
-import LearningLogApp from './apps/LearningLogApp.js'; // [新增]
-
-const app = createApp({
-    components: { 
-        DashboardApp, 
-        EnglishApp, 
-        ConceptApp, 
-        FeynmanApp, 
-        ImageOcclusionApp, 
-        TheDock,
-        MistakeApp,
-        LearningLogApp
-    },
-    template: `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>   
+    <script type="importmap">
+    { "imports": { "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js" } }
+    </script>
+    <style>
+        [v-cloak] { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dock-item { transition: transform 0.2s; }
+        .dock-item:hover { transform: translateY(-8px) scale(1.1); }
+        .scale-up { animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes bounce-slow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .animate-bounce-slow { animation: bounce-slow 1s infinite; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+            "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans h-screen overflow-hidden">
+    
     <div id="app" v-cloak class="h-full flex flex-col relative">
         
         <header class="h-16 px-8 flex justify-between items-center bg-white/60 backdrop-blur-md border-b border-white/50 z-20">
             <div class="font-bold text-xl flex items-center gap-2">
-                <span v-if="currentApp === 'dashboard'">综合概览</span>
-                <span v-else-if="currentApp === 'english'"> 英语工作室</span>
-                <span v-else-if="currentApp === 'cloze'"> 概念实验室</span> 
-                <span v-else-if="currentApp === 'feynman'"> 费曼自测</span>
-                <span v-else-if="currentApp === 'occlusion'"> 图像遮挡</span>
-                <span v-else-if="currentApp === 'mistakes'"> 错题日志</span>
-                <span v-else-if="currentApp === 'learninglog'">学习日志</span> 
+                <span v-if="currentApp === 'dashboard'">👋 综合概览</span>
+                <span v-else-if="currentApp === 'english'">🔤 英语工作室</span>
+                <span v-else-if="currentApp === 'math'">📐 数学思维</span>
+                <span v-else-if="currentApp === 'code'">💻 编程实验</span>
+                <span v-else-if="currentApp === 'mistakes'">📓 错题日志</span>
             </div>
             <div v-if="currentApp === 'dashboard'" class="flex items-center bg-slate-200/50 rounded-full p-1 text-sm">
                 <button @click="changeMonth(-1)" class="w-8 h-8 rounded-full hover:bg-white flex items-center justify-center text-slate-500 transition">←</button>
@@ -57,58 +67,70 @@ const app = createApp({
         <main class="flex-1 overflow-hidden p-6 pb-32 relative">
             
             <dashboard-app v-if="currentApp === 'dashboard'"
-                :calendar-days="calendarDays" :current-day-tasks="currentDayTasks" :all-tasks="tasks" :selected-date="selectedDate" :start-day-of-week="startDayOfWeek" :categories="categories" :chart-data="chartData" :grades="grades" 
-                @select-date="selectDate" @open-pomodoro="openPomodoroModal" @open-rate="openRateModal" @edit-task="openEditTaskModal" @delete-task="deleteTask" @add-category="addCategory" @delete-category="deleteCategory" @postpone-task="handlePostponeTask" 
-                @switch-app="handleSwitchApp" 
-                @quick-add-concept="handleQuickAddConcept" 
-                @add-concept="handleDashboardAddConcept"
+                :calendar-days="calendarDays"
+                :current-day-tasks="currentDayTasks"
+                :all-tasks="tasks" 
+                :selected-date="selectedDate"
+                :start-day-of-week="startDayOfWeek"
+                :categories="categories"
+                :chart-data="chartData" 
+                @select-date="selectDate"
+                @open-pomodoro="openPomodoroModal"
+                @open-rate="openRateModal"
+                @edit-task="openEditTaskModal"
+                @delete-task="deleteTask"
+                @add-category="addCategory"
+                @delete-category="deleteCategory"
+                @postpone-task="handlePostponeTask"
             ></dashboard-app>
 
             <english-app v-if="currentApp === 'english'"
-                :books="books" :current-book="currentBook" :vocabulary="vocabulary" :recitation-data="recitationData" :subject-tasks="englishTasks" :pos-options="posOptions" :book-icons="bookIcons" 
-                @select-book="selectBook" @create-book="createBook" @delete-book="deleteBook" @update-book="updateBook" @export-book="exportBook" @request-recitation="handleRecitationRequest" @add-word="handleAddWord" @update-word="updateWord" @delete-word="deleteWord" @upload="handleVocabUpload" @download="downloadTemplate"
+                :books="books"
+                :current-book="currentBook"
+                :vocabulary="vocabulary"
+                :recitation-data="recitationData"
+                :subject-tasks="englishTasks"
+                :pos-options="posOptions"
+                :book-icons="bookIcons"
+                @select-book="selectBook"
+                @create-book="createBook"
+                @delete-book="deleteBook"
+                @update-book="updateBook"
+                @export-book="exportBook"
+                @request-recitation="handleRecitationRequest"
+                @add-word="handleAddWord"
+                @update-word="updateWord"
+                @delete-word="deleteWord"
+                @upload="handleVocabUpload"
+                @download="downloadTemplate"
             ></english-app>
 
-            <concept-app v-if="currentApp === 'cloze'"
-                :mode="currentApp" :concepts="getConceptsByType(currentApp)" :subjects="categories" :grades="grades" :initial-action="conceptInitialAction"  
-                @add-concept="addConcept" @update-concept="handleUpdateConcept" @delete-concept="deleteConcept" @refresh="loadConcepts" @back-home="handleSwitchApp('dashboard')"
-            ></concept-app>
-
-            <feynman-app v-if="currentApp === 'feynman'"
-                :concepts="feynmanList" :subjects="categories" :grades="grades" 
-                @add-concept="addFeynman" @update-concept="updateFeynman" @delete-concept="deleteFeynman" @back-home="handleSwitchApp('dashboard')"
-            ></feynman-app>
-
-            <image-occlusion-app v-if="currentApp === 'occlusion'"
+            <concept-app v-if="['cloze', 'image', 'feynman'].includes(currentApp)"
+                :mode="currentApp"
+                :concepts="getConceptsByType(currentApp)"
                 :subjects="categories"
                 :grades="grades"
-                :occlusions="occlusionList"
-                @add-occlusion="addOcclusion"
-                @update-occlusion="updateOcclusion"
-                @delete-occlusion="deleteOcclusion"
-                @back-home="handleSwitchApp('dashboard')"
-            ></image-occlusion-app>
+                :initial-action="conceptInitialAction"  @add-concept="addConcept"
+                @update-concept="handleUpdateConcept"   @delete-concept="deleteConcept"
+                @import-excel="handleConceptImport"
+                @back-home="currentApp = 'dashboard'"
+            ></concept-app>
 
             <mistake-app v-if="currentApp === 'mistakes'"
                 :categories="categories"
                 @create-ebbinghaus-task="handleCreateMistakeTask"
             ></mistake-app>
-
-            <learning-log-app v-if="currentApp === 'learninglog'"
-                :categories="categories"
-                @create-ebbinghaus-task="handleCreateMistakeTask"
-            ></learning-log-app>
         </main>
 
         <the-dock 
             :current-app="currentApp" 
-            @switch-app="handleSwitchApp"
+            @switch-app="(id) => currentApp = id"
             @add-task="openAddTaskModal"
             @open-pomodoro="openPomodoroModal(null)"
         ></the-dock>
 
         <div v-if="showTaskModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-8 scale-up max-h-[90vh] overflow-y-auto">
+            <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-8 scale-up max-h-[90vh] overflow-y-auto">
                 <h3 class="text-2xl font-bold mb-6 text-slate-800">{{ isEditing ? '编辑任务' : '新建任务' }}</h3>
                 <div class="space-y-4">
                     <div>
@@ -186,7 +208,23 @@ const app = createApp({
             </div>
         </div>
 
-        <div v-if="ratingModal.show" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center animate-fade-in">
+        <div v-if="ratingModal.show" class="fixed inset-0 bg-bla<dashboard-app v-if="currentApp === 'dashboard'"
+    :calendar-days="calendarDays"
+    :current-day-tasks="currentDayTasks"
+    :all-tasks="tasks" 
+    :selected-date="selectedDate"
+    :start-day-of-week="startDayOfWeek"
+    :categories="categories"
+    :chart-data="chartData" 
+    @select-date="selectDate"
+    @open-pomodoro="openPomodoroModal"
+    @open-rate="openRateModal"
+    @edit-task="openEditTaskModal"
+    @delete-task="deleteTask"
+    @add-category="addCategory"
+    @delete-category="deleteCategory"
+    @postpone-task="handlePostponeTask"
+></dashboard-app>ck/60 backdrop-blur-sm z-[60] flex items-center justify-center animate-fade-in">
             <div class="bg-white rounded-3xl p-8 text-center max-w-sm shadow-2xl scale-up">
                 <h3 class="font-bold text-xl mb-6 text-slate-800">本次记忆效果如何？</h3>
                 <div class="grid grid-cols-3 gap-3 mb-6">
@@ -199,137 +237,7 @@ const app = createApp({
         </div>
 
     </div>
-    `,
-    setup() {
-        const API_BASE = '/api';
-        
-        // 初始化各业务模块
-        const taskModule = useTasks(API_BASE);
-        const vocabModule = useVocabulary(API_BASE);
-        const pomodoroModule = usePomodoro();
-        const conceptModule = useConcepts(API_BASE);
-        const feynmanModule = useFeynman(API_BASE); 
-        const occlusionModule = useImageOcclusion(API_BASE); 
-
-        const currentApp = ref('dashboard');
-        const recitationData = ref([]); 
-        const conceptInitialAction = ref(null);
-        
-        const englishTasks = computed(() => {
-            const now = new Date().toISOString().split('T')[0];
-            if (!taskModule.tasks.value) return [];
-            return taskModule.tasks.value
-                .filter(t => t.category === '英语' && Array.isArray(t.schedule))
-                .map(t => {
-                    const next = t.schedule.find(n => !n.completed && n.date >= now);
-                    return next ? { id: t.id, title: t.title, nextDate: next.date, nextStage: next.stage } : null;
-                })
-                .filter(Boolean)
-                .sort((a,b) => a.nextDate.localeCompare(b.nextDate))
-                .slice(0, 10);
-        });
-
-        onMounted(async () => {
-            await Promise.all([
-                taskModule.loadTasks(), 
-                vocabModule.loadBooks(),
-                conceptModule.loadConcepts(),
-                feynmanModule.loadFeynman(),
-                occlusionModule.loadOcclusion() 
-            ]);
-        });
-
-        // ==========================================
-        // 核心修复：添加指令拦截器，统一处理应用切换
-        // ==========================================
-        const handleSwitchApp = (id) => {
-            // 兼容首页或旧代码可能传来的 'image' 指令，自动转给 'occlusion'
-            if (id === 'image') id = 'occlusion';
-            currentApp.value = id;
-        };
-
-        const handleQuickAddConcept = (mode) => {
-            // 兼容首页快捷添加的 'image' 指令
-            if (mode === 'image') mode = 'occlusion';
-            
-            currentApp.value = mode;
-            conceptInitialAction.value = 'add';
-            setTimeout(() => { conceptInitialAction.value = null; }, 500);
-        };
-        // ==========================================
-
-        const handleAddWord = async (wordObj) => {
-            vocabModule.newWord.value = wordObj; 
-            await vocabModule.addManualWord();
-        };
-
-        const handleRecitationRequest = async (bookIds) => {
-            const data = await vocabModule.fetchAggregateVocab(bookIds);
-            recitationData.value = data;
-        };
-
-        const handlePostponeTask = ({ taskId, stage, days }) => {
-            taskModule.postponeTask(taskId, stage, days);
-        };
-
-        const handleConceptImport = async (file) => {
-            try {
-                const result = await conceptModule.importConceptsFromExcel(file, 'cloze');
-                alert(`导入完成！\n成功: ${result.success} 条\n跳过: ${result.skipped} 条 (格式错误或缺少数据)`);
-                await conceptModule.loadConcepts();
-            } catch (e) {
-                console.error(e);
-                alert("导入失败，请检查文件格式。\n需要包含: 年级 | 课程 | 原句(含{{关键词}})");
-            }
-        };
-
-        const handleDashboardAddConcept = (newConcept) => {
-            conceptModule.addConcept(newConcept);
-        };
-
-        const handleUpdateConcept = (id, data) => {
-            conceptModule.updateConcept(id, data);
-        };
-        // 在 setup() 内部添加
-        const handleCreateMistakeTask = async (taskData) => {
-            try {
-                const res = await fetch('/api/data', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(taskData)
-                });
-                const newTaskInfo = await res.json();
-                tasks.value.push(newTaskInfo); // 将新任务推入总任务列表
-                // 如果刚好是今天的任务，重新计算当天任务列表
-                calculateCurrentDayTasks(); 
-            } catch (err) {
-                console.error("创建艾宾浩斯复习任务失败", err);
-            }
-        };
-        return {
-            currentApp,
-            englishTasks,
-            recitationData, 
-            conceptInitialAction,
-            
-            ...taskModule,
-            ...vocabModule,
-            ...pomodoroModule,
-            ...conceptModule, 
-            ...feynmanModule,
-            ...occlusionModule,
-            
-            handleSwitchApp, // 暴露给模板使用
-            handleAddWord,
-            handleRecitationRequest,
-            handlePostponeTask,
-            handleConceptImport,
-            handleQuickAddConcept,
-            handleDashboardAddConcept,
-            handleUpdateConcept,
-            handleCreateMistakeTask
-        };
-    }
-});
-
-app.mount('#app');
+    
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>

@@ -7,6 +7,7 @@ export default {
     },
     emits: ['create-ebbinghaus-task'],
     setup(props, { emit }) {
+        const API_BASE = 'http://localhost:3000/api';
         const mistakes = ref([]);
         const showModal = ref(false);
         const filterSubject = ref('');
@@ -58,7 +59,7 @@ export default {
 
         const fetchMistakes = async () => {
             try {
-                const res = await fetch('/api/mistakelog');
+                const res = await fetch(`${API_BASE}/mistakelog`);
                 if (res.ok) mistakes.value = await res.json();
             } catch (err) { console.error("加载错题失败", err); }
         };
@@ -176,7 +177,7 @@ export default {
         const deleteMistake = async (id) => {
             if (!confirm("确定要彻底删除这条错题记录吗？这也会同时删除相关的复习日志！")) return;
             try {
-                const res = await fetch(`/api/mistakelog/${id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/mistakelog/${id}`, { method: 'DELETE' });
                 if (res.ok) {
                     mistakes.value = mistakes.value.filter(m => m.id !== id);
                     if (viewerState.value.show && viewerState.value.mistake?.id === id) closeViewer();
@@ -203,7 +204,7 @@ export default {
 
             if (isEditing.value) {
                 try {
-                    const res = await fetch(`/api/mistakelog/${editingId.value}`, {
+                    const res = await fetch(`${API_BASE}/mistakelog/${editingId.value}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -224,7 +225,7 @@ export default {
                 };
 
                 try {
-                    const res = await fetch('/api/mistakelog', {
+                    const res = await fetch(`${API_BASE}/mistakelog`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newRecord)
@@ -349,7 +350,7 @@ export default {
 
             const m = viewerState.value.mistake;
             try {
-                const res = await fetch(`/api/mistakelog/${m.id}/review`, {
+                const res = await fetch(`${API_BASE}/mistakelog/${m.id}/review`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 

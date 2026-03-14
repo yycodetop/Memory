@@ -104,7 +104,7 @@ export default {
                         </div>
 
                         <div class="h-36 rounded-xl bg-slate-800 relative overflow-hidden mb-4 border border-slate-100 flex items-center justify-center">
-                            <img :src="item.imageUrl" class="max-w-full max-h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity">
+                            <img :src="formatImageUrl(item.imageUrl)" class="max-w-full max-h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity">
                             <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded-md backdrop-blur-sm z-10">
                                 {{ item.masks.length }} 个遮挡点
                             </div>
@@ -168,7 +168,7 @@ export default {
                     
                     <div v-else class="space-y-4">
                         <div class="h-32 rounded-xl bg-slate-900 relative overflow-hidden border border-slate-700 group flex items-center justify-center">
-                            <img :src="imgPreview" class="max-w-full max-h-full object-contain">
+                            <img :src="formatImageUrl(imgPreview)" class="max-w-full max-h-full object-contain">
                             <label v-if="!isEditing" class="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer text-sm font-bold">
                                 <i class="fas fa-sync-alt mb-1"></i>重新选择
                                 <input type="file" accept="image/*" class="hidden" @change="handleImageSelect">
@@ -253,7 +253,7 @@ export default {
                          @mousedown="startDraw" 
                          ref="imageContainer">
                          
-                        <img :src="imgPreview" class="max-h-[80vh] max-w-full block select-none pointer-events-none" draggable="false">
+                        <img :src="formatImageUrl(imgPreview)"  class="max-h-[80vh] max-w-full block select-none pointer-events-none" draggable="false">
                         
                         <div v-for="(mask, idx) in currentMasks" :key="idx" 
                              class="absolute border transition-colors cursor-move flex items-center justify-center shadow-sm group z-10" 
@@ -297,7 +297,7 @@ export default {
                 </button>
 
                 <div class="relative inline-block shadow-2xl rounded-lg overflow-hidden select-none">
-                    <img :src="testItem.imageUrl" class="max-h-[80vh] max-w-full block" draggable="false">
+                    <img :src="formatImageUrl(testItem.imageUrl)"  class="max-h-[80vh] max-w-full block" draggable="false">
                     
                     <div v-for="(mask, idx) in testMasksStatus" :key="idx"
                          class="absolute border transition-all duration-300 cursor-pointer shadow-sm flex items-center justify-center"
@@ -335,7 +335,16 @@ export default {
         const currentSubject = ref('all');
         const currentGrade = ref('all');
         const searchQuery = ref(''); 
-        
+
+        const formatImageUrl = (url) => {
+            if (!url) return '';
+            // 如果是后端传来的相对路径，拼上后端的绝对地址
+            if (url.startsWith('/uploads/')) {
+                return `http://localhost:3000${url}`;
+            }
+            // 如果是刚刚上传预览的 base64 格式，直接返回
+            return url;
+        };
         // --- 排序逻辑 ---
         const filteredList = computed(() => {
             let list = [...props.occlusions];
@@ -607,6 +616,7 @@ export default {
         };
 
         return {
+            formatImageUrl, // <--- 加上这一行
             currentSubject, currentGrade, searchQuery, filteredList,
             showEditor, isEditing, form, imgPreview, imageContainer, currentMasks,
             activeMaskIdx, activeDrawingMask, // 导出新状态

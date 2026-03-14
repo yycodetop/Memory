@@ -4,7 +4,7 @@ const { createApp, ref, computed, watch, onMounted } = Vue;
 createApp({
     setup() {
         const INTERVALS = [0, 1, 2, 4, 7, 15]; 
-        const API_BASE = '/api';
+        const API_BASE = 'http://localhost:3000/api';
 
         // --- 核心数据 ---
         const tasks = ref([]);

@@ -7,6 +7,7 @@ export default {
     },
     emits: ['create-ebbinghaus-task'], // [新增] 声明触发创建复习计划的事件
     setup(props, { emit }) {
+        const API_BASE = 'http://localhost:3000/api';
         const logs = ref([]);
         const showModal = ref(false);
         const isEditing = ref(false);
@@ -41,7 +42,7 @@ export default {
 
         const fetchLogs = async () => {
             try {
-                const res = await fetch('/api/learninglog');
+                const res = await fetch(`${API_BASE}/learninglog`);
                 if (res.ok) logs.value = await res.json();
             } catch (err) { console.error(err); }
         };
@@ -103,7 +104,7 @@ export default {
         const deleteLog = async (id) => {
             if (!confirm("确定要删除这条学习记录吗？\n注意：如果已经同步到错题本，错题本中的记录不会受影响。")) return;
             try {
-                const res = await fetch(`/api/learninglog/${id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/learninglog/${id}`, { method: 'DELETE' });
                 if (res.ok) {
                     logs.value = logs.value.filter(l => l.id !== id);
                     if (viewerState.value.show && viewerState.value.log?.id === id) viewerState.value.show = false;
@@ -128,7 +129,7 @@ export default {
                 const payload = { ...form.value };
                 delete payload.syncToMistake; // 移除UI专用字段再保存到后端
                 
-                const url = isEditing.value ? `/api/learninglog/${editingId.value}` : '/api/learninglog';
+               const url = isEditing.value ? `${API_BASE}/learninglog/${editingId.value}` : `${API_BASE}/learninglog`;
                 const method = isEditing.value ? 'PUT' : 'POST';
                 const res = await fetch(url, {
                     method, headers: { 'Content-Type': 'application/json' },
@@ -151,7 +152,7 @@ export default {
                             images: savedLog.images ? [...savedLog.images] : []
                         };
                         
-                        const mRes = await fetch('/api/mistakelog', {
+                        const mRes = await fetch(`${API_BASE}/mistakelog`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(mistakePayload)
