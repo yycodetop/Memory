@@ -1,0 +1,155 @@
+[
+  {
+    "id": "1771677268739",
+    "name": "初中英语七下单词汇总",
+    "type": "word",
+    "icon": "fas fa-book",
+    "grade": "初一",
+    "term": "第二学期",
+    "sortOrder": 12
+  },
+  {
+    "id": "1772620982231",
+    "name": "第一单元",
+    "icon": "fas fa-book",
+    "sortOrder": 1,
+    "type": "word",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1772621262079",
+    "name": "第二单元",
+    "icon": "fas fa-book",
+    "sortOrder": 1,
+    "type": "word",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1772621309706",
+    "name": "第三单元",
+    "icon": "fas fa-book",
+    "sortOrder": 1,
+    "type": "word",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1772621590589",
+    "name": "第四单元",
+    "icon": "fas fa-book",
+    "sortOrder": 1,
+    "type": "word",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1772621797449",
+    "name": "第五单元",
+    "icon": "fas fa-book",
+    "sortOrder": 1,
+    "type": "word",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1772622203637",
+    "name": "第六单元",
+    "icon": "fas fa-book",
+    "sortOrder": 1,
+    "type": "word",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1772622858618",
+    "name": "七下短语",
+    "icon": "fas fa-graduation-cap",
+    "sortOrder": 1,
+    "type": "phrase",
+    "grade": "初一",
+    "term": "第二学期"
+  },
+  {
+    "id": "1773225218736",
+    "name": "前缀功能",
+    "type": "phrase",
+    "icon": "fas fa-star",
+    "sortOrder": 100,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773225725385",
+    "name": "后缀功能",
+    "type": "phrase",
+    "icon": "fas fa-star",
+    "sortOrder": 101,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773225975910",
+    "name": "从头到脚",
+    "type": "phrase",
+    "icon": "fas fa-book",
+    "sortOrder": 102,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773226224190",
+    "name": "天地万物",
+    "type": "phrase",
+    "icon": "fas fa-star",
+    "sortOrder": 104,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773226290806",
+    "name": "千姿百态",
+    "type": "phrase",
+    "icon": "fas fa-star",
+    "sortOrder": 105,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773226746664",
+    "name": "词根105：view",
+    "type": "word",
+    "icon": "fas fa-gamepad",
+    "sortOrder": 105,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773231897281",
+    "name": "词根106：close=关",
+    "type": "word",
+    "icon": "fas fa-gamepad",
+    "sortOrder": 106,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773231976716",
+    "name": "词根107：clude",
+    "type": "word",
+    "icon": "fas fa-gamepad",
+    "sortOrder": 107,
+    "grade": "其他",
+    "term": "全学年"
+  },
+  {
+    "id": "1773232359798",
+    "name": "词根108： vent-1",
+    "type": "word",
+    "icon": "fas fa-gamepad",
+    "sortOrder": 108,
+    "grade": "其他",
+    "term": "全学年"
+  }
+]

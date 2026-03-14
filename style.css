@@ -1,0 +1,70 @@
+/* style.css */
+[v-cloak] {
+    display: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3); 
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+}
+
+aside.bg-slate-900 .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+}
+aside.bg-slate-900 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounceSlow {
+    0%, 100% { transform: translateY(-3%); }
+    50% { transform: translateY(3%); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.scale-up {
+    animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-bounce-slow {
+    animation: bounceSlow 2s infinite ease-in-out;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+/* 确保公式在深色背景下也能看清（针对自测模式） */
+.math-content {
+    word-break: break-word;
+}
+
+/* 适配 MathJax 的缩放 */
+.mjx-chtml {
+    font-size: 110% !important;
+}
+
+/* 自测模式下的公式颜色 */
+#app .math-content mjx-container {
+    color: inherit;
+}
