@@ -49,6 +49,27 @@ router.get('/mistakes', (req, res) => {
     res.json(mistakes);
 });
 
+router.delete('/books/:id', (req, res) => {
+    const bookId = req.params.id;
+    let books = readJson(BOOKS_FILE);
+    books = books.filter(b => b.id !== bookId);
+    writeJson(BOOKS_FILE, books);
+    
+    let vocab = readJson(VOCAB_FILE);
+    vocab = vocab.filter(v => v.bookId !== bookId);
+    writeJson(VOCAB_FILE, vocab);
+
+    // 【补充缺失的逻辑：同步删除错题本中的记录】
+    let mistakes = readJson(MISTAKES_FILE);
+    const initialMistakesLen = mistakes.length;
+    mistakes = mistakes.filter(m => m.bookId !== bookId);
+    if (mistakes.length !== initialMistakesLen) {
+        writeJson(MISTAKES_FILE, mistakes);
+    }
+
+    res.json({ success: true });
+});
+
 router.post('/mistakes', (req, res) => {
     const { word, meaning, bookId } = req.body;
     if (!word) return res.status(400).json({ error: 'Missing word' });

@@ -18,7 +18,10 @@ export default {
     
     setup(props, { emit }) {
         const API_BASE = `http://${window.location.hostname}:3000/api`;
-        const { speak, speakQueue, stop: stopSpeaking, voices, selectedVoiceURI, rate: ttsRate, isSpeaking } = useTTS();
+        // const { speak, speakQueue, stop: stopSpeaking, voices, selectedVoiceURI, rate: ttsRate, isSpeaking } = useTTS();
+        const { speak, speakQueue, stop: stopSpeaking, voices, englishVoice, rate: ttsRate, isSpeaking } = useTTS();
+
+       
 
         // --- 1. 顶部过滤与分类状态 ---
         const filterGrade = ref('');
@@ -36,6 +39,7 @@ export default {
         });
 
         // --- 2. 基础与表单状态定义 ---
+        const selectedVoiceURI = ref('');
         const showCreateModal = ref(false);
         const isEditingBook = ref(false);
         const newBookForm = ref({ id: '', name: '', type: 'word', icon: 'fas fa-book', grade: '其他', term: '全学年', sortOrder: 1 });
@@ -136,6 +140,23 @@ export default {
         const matchWrongList = computed(() => matchResults.value.filter(r => !r.isCorrect));
 
         // --- 监听器 ---
+        // 监听 useTTS 的初始默认语音，赋予 select 初始值
+        watch(englishVoice, (newVoice) => {
+            if (newVoice && !selectedVoiceURI.value) {
+                selectedVoiceURI.value = newVoice.voiceURI;
+            }
+        }, { immediate: true });
+
+        // 监听用户在下拉框中的选择，并更新给底层的 englishVoice
+        watch(selectedVoiceURI, (newURI) => {
+            if (newURI) {
+                const targetVoice = voices.value.find(v => v.voiceURI === newURI);
+                if (targetVoice) {
+                    englishVoice.value = targetVoice;
+                }
+            }
+        });
+
         watch(() => props.currentBook, (newVal) => { 
             if (newVal) { 
                 localNewWord.value.pos = newVal.type === 'word' ? 'n.' : 'phrase'; 
@@ -394,7 +415,13 @@ export default {
             let queue = [...data]; if (reciteConfig.value.order === 'random') queue.sort(() => Math.random() - 0.5);
             reciteQueue.value = queue; reciteIndex.value = 0;
             if (reciteConfig.value.mode === 'timed') { reciteTimeRemaining.value = reciteConfig.value.duration * 60; startTimer(); } else { reciteTimeRemaining.value = 0; }
-            isReciting.value = true; window.addEventListener('keydown', handleKeydown); resetWordState();
+            isReciting.value = true; 
+            
+            // 【添加这行防御性代码】
+            window.removeEventListener('keydown', handleKeydown); 
+            window.addEventListener('keydown', handleKeydown); 
+            
+            resetWordState();
         };
 
         const startTimer = () => { clearInterval(reciteTimer.value); reciteTimer.value = setInterval(() => { reciteTimeRemaining.value--; if (reciteTimeRemaining.value <= 0) { clearInterval(reciteTimer.value); alert("时间到！学习结束。"); exitRecitation(); } }, 1000); };
@@ -541,6 +568,7 @@ export default {
 
         // [修复] 确保导出了最新的 openEbbinghausModal 和 confirmEbbinghausReview
         return {
+            selectedVoiceURI,
             showCreateModal, isEditingBook, newBookForm, editingId, editForm, localNewWord, isFetching,
             openCreateModal, openEditBookModal, handleSaveBook, handleAddWord, startEdit, saveEdit, cancelEdit, getPosColor,
             handleExport: () => emit('exportBook', props.currentBook?.id), handleDownload: () => emit('download'),

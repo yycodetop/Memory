@@ -35,3 +35,8 @@ app.listen(PORT, () => {
     console.log(`Memory OS running at http://localhost:${PORT}`);
     console.log(`- Concepts API available at http://localhost:${PORT}/api/concepts`);
 });
+
+// 拦截 Chrome DevTools 的自动探测请求，消除 404 报错
+app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
+    res.status(204).send(); 
+});
