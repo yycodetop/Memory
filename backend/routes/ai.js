@@ -14,20 +14,23 @@ if (!fs.existsSync(CACHE_FILE)) {
 const readCache = () => JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
 const writeCache = (data) => fs.writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2), 'utf8');
 
-// 请确保换成您的 API Key
-const AI_API_KEY = 'sk-f6616d15718b46f8921bf2bc5ddf92eb'; 
-const openai = new OpenAI({
-    baseURL: 'https://api.deepseek.com/v1',
-    // baseURL:'https://api.deepseek.com/v3.2_speciale_expires_on_20251215',
-    apiKey: AI_API_KEY
-});
+// 默认的后备 API Key（当用户未设置时使用）
+const DEFAULT_API_KEY = 'sk-f6616d15718b46f8921bf2bc5ddf92eb'; 
 
 router.post('/memory-decoder', async (req, res) => {
-    const { word } = req.body;
+    // 接收前端传来的 word 和 apiKey
+    const { word, apiKey } = req.body;
 
     if (!word) {
         return res.status(400).json({ error: '请提供需要解码的单词' });
     }
+
+    // 动态初始化 OpenAI 实例：优先使用用户传入的 Key，否则使用默认 Key
+    const activeApiKey = apiKey ? apiKey : DEFAULT_API_KEY;
+    const openai = new OpenAI({
+        baseURL: 'https://api.deepseek.com/v1',
+        apiKey: activeApiKey
+    });
 
     // --- 2. 检查缓存：如果查过该词，直接返回缓存结果 ---
     const cache = readCache();

@@ -105,6 +105,7 @@ const app = createApp({
             @switch-app="handleSwitchApp"
             @add-task="openAddTaskModal"
             @open-pomodoro="openPomodoroModal(null)"
+            @open-api-settings="showApiModal = true"
         ></the-dock>
 
         <div v-if="showTaskModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -197,7 +198,27 @@ const app = createApp({
                 <button @click="ratingModal.show=false" class="text-slate-400 hover:text-slate-600 transition">取消</button>
             </div>
         </div>
-
+        <div v-if="showApiModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+             <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 scale-up">
+                <h3 class="text-2xl font-bold mb-2 text-slate-800"><i class="fas fa-robot text-indigo-500 mr-2"></i>AI 魔法设置</h3>
+                <p class="text-xs text-slate-500 mb-6">配置您专属的 DeepSeek API Key，以激活系统的 AI 记忆解码功能。</p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">DeepSeek API Key</label>
+                        <input v-model="deepseekApiKey" type="password" placeholder="sk-..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-mono text-sm">
+                    </div>
+                    <div class="text-xs text-slate-400 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <i class="fas fa-info-circle mr-1"></i> Key 仅保存在您的浏览器本地 (localStorage)，不会上传到其他服务器。
+                    </div>
+                </div>
+                
+                <div class="flex gap-4 mt-8">
+                    <button @click="showApiModal=false" class="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition">取消</button>
+                    <button @click="saveApiKey" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition transform active:scale-95">保存设置</button>
+                </div>
+            </div>
+        </div>
     </div>
     `,
     setup() {
@@ -214,7 +235,15 @@ const app = createApp({
         const currentApp = ref('dashboard');
         const recitationData = ref([]); 
         const conceptInitialAction = ref(null);
-        
+        // API 设置状态
+        const showApiModal = ref(false);
+        const deepseekApiKey = ref(localStorage.getItem('deepseek_api_key') || '');
+
+        const saveApiKey = () => {
+            localStorage.setItem('deepseek_api_key', deepseekApiKey.value.trim());
+            showApiModal.value = false;
+            alert('API Key 保存成功！');
+        };
         const englishTasks = computed(() => {
             const now = new Date().toISOString().split('T')[0];
             if (!taskModule.tasks.value) return [];
@@ -311,7 +340,10 @@ const app = createApp({
             englishTasks,
             recitationData, 
             conceptInitialAction,
-            
+            // ... 前面现有的导出保持不变
+            showApiModal,
+            deepseekApiKey,
+            saveApiKey,
             ...taskModule,
             ...vocabModule,
             ...pomodoroModule,
@@ -328,6 +360,7 @@ const app = createApp({
             handleDashboardAddConcept,
             handleUpdateConcept,
             handleCreateMistakeTask
+
         };
     }
 });

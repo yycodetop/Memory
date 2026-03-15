@@ -264,10 +264,14 @@ export default {
             };
 
             try {
+                // 读取本地缓存的 API Key
+                const userApiKey = localStorage.getItem('deepseek_api_key') || '';
+
                 const res = await fetch(`${API_BASE}/ai/memory-decoder`,{
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ word: wordStr })
+                    // 将 apiKey 一起发送给后端
+                    body: JSON.stringify({ word: wordStr, apiKey: userApiKey })
                 });
                 
                 const contentType = res.headers.get('content-type');

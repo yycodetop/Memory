@@ -4,7 +4,7 @@
  */
 export default {
     props: ['currentApp'],
-    emits: ['switchApp', 'addTask', 'openPomodoro'],
+    emits: ['switchApp', 'addTask', 'openPomodoro', 'openApiSettings'],
     template: `
     <div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
         <div class="glass px-4 py-3 rounded-2xl shadow-2xl shadow-indigo-900/20 flex items-center gap-3 ring-1 ring-white/60 bg-white/80 backdrop-blur-xl transition-all hover:scale-[1.01]">
@@ -31,6 +31,8 @@ export default {
             
             <button @click="$emit('addTask')" class="dock-item w-12 h-12 rounded-xl flex items-center justify-center text-lg bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-100 transition-transform active:scale-95" title="新建任务"><i class="fas fa-plus"></i></button>
             <button @click="$emit('openPomodoro')" class="dock-item w-12 h-12 rounded-xl flex items-center justify-center text-lg bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-100 transition-transform active:scale-95" title="番茄专注"><i class="fas fa-stopwatch"></i></button>
+
+            <button @click="$emit('openApiSettings')" class="dock-item w-12 h-12 rounded-xl flex items-center justify-center text-lg bg-slate-700 text-white hover:bg-slate-600 shadow-lg shadow-slate-700/30 ring-2 ring-slate-200 transition-transform active:scale-95" title="AI API 设置"><i class="fas fa-cog"></i></button>
         </div>
     </div>
     `,
