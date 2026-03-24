@@ -1,6 +1,6 @@
 /**
  * js/apps/EnglishApp.js
- * 英语工作室 (包含：顶部下拉筛选、左侧工具箱、单词卡片网格、AI沉浸式记忆解码、四合一遗忘曲线复习)
+ * 英语工作室 (包含：顶部下拉筛选、左侧工具箱、单词卡片网格、AI沉浸式记忆解码、四合一遗忘曲线复习、填空听写)
  */
 import { ref, computed, watch, nextTick, onUnmounted, onMounted } from 'vue';
 import { useTTS } from '../composables/useTTS.js';
@@ -18,10 +18,7 @@ export default {
     
     setup(props, { emit }) {
         const API_BASE = `http://${window.location.hostname}:3000/api`;
-        // const { speak, speakQueue, stop: stopSpeaking, voices, selectedVoiceURI, rate: ttsRate, isSpeaking } = useTTS();
         const { speak, speakQueue, stop: stopSpeaking, voices, englishVoice, rate: ttsRate, isSpeaking } = useTTS();
-
-       
 
         // --- 1. 顶部过滤与分类状态 ---
         const filterGrade = ref('');
@@ -59,7 +56,6 @@ export default {
             parsedContent: [], 
             isParsed: false    
         });
-        // [新增] 记录已经被魔法解码的单词集合
         const decodedWords = ref(new Set());
         const fetchDecodedWords = async () => {
             try {
@@ -70,14 +66,13 @@ export default {
                 }
             } catch (e) {}
         };
+
         // --- 4. 错词本与艾宾浩斯 ---
         const showMistakeBook = ref(false);
         const mistakeList = ref([]);
         const selectedMistakeDate = ref(null); 
         const ebbinghausReviewList = ref([]);
         const isEbbinghausReview = ref(false);
-        
-        // [新增] 遗忘曲线弹窗状态
         const showEbbinghausModal = ref(false);
 
         // --- 5. 学习状态 ---
@@ -104,6 +99,9 @@ export default {
         const flashCount = ref(0); 
         const memorizeSessionId = ref(0);
         const readSessionId = ref(0); 
+
+        // [新增] 填空听写专用状态
+        const fillBlankSlots = ref([]);
 
         // --- 6. 连线测试状态 ---
         const isMatchingGame = ref(false);
@@ -134,20 +132,53 @@ export default {
         const mistakeGroups = computed(() => { const groups = {}; mistakeList.value.forEach(m => { if (!groups[m.date]) groups[m.date] = []; groups[m.date].push(m); }); return groups; });
         const sortedMistakeDates = computed(() => Object.keys(mistakeGroups.value).sort((a, b) => new Date(b) - new Date(a)));
         const currentReciteWord = computed(() => reciteQueue.value[reciteIndex.value] || null);
-        const wordSlots = computed(() => { if (!currentReciteWord.value) return []; return currentReciteWord.value.word.split('').map((char, i) => ({ char, isSpace: char === ' ', val: reciteInput.value[i] || '', isActive: i === reciteInput.value.length })); });
+        
+        // 默认模式下的单词槽
+        const wordSlots = computed(() => { 
+            if (!currentReciteWord.value) return []; 
+            return currentReciteWord.value.word.split('').map((char, i) => ({ 
+                char, 
+                isSpace: char === ' ', 
+                val: reciteInput.value[i] || '', 
+                isActive: i === reciteInput.value.length 
+            })); 
+        });
+
+        // [新增] 填空听写模式下的智能分配槽
+        const fillblankDisplaySlots = computed(() => {
+            if (!currentReciteWord.value || reciteConfig.value.studyMode !== 'fillblank') return [];
+            let inputIdx = 0;
+            return fillBlankSlots.value.map(slot => {
+                let displayChar = slot.char;
+                let isActive = false;
+                
+                if (slot.isBlank) {
+                    if (inputIdx < reciteInput.value.length) {
+                        displayChar = reciteInput.value[inputIdx];
+                        inputIdx++;
+                    } else {
+                        displayChar = '';
+                        if (inputIdx === reciteInput.value.length) {
+                            isActive = true; // 当前等待输入的焦点
+                            inputIdx++;
+                        }
+                    }
+                }
+                return { ...slot, displayChar, isActive };
+            });
+        });
+
         const reciteProgress = computed(() => !reciteQueue.value.length ? 0 : Math.round(((reciteIndex.value + 1) / reciteQueue.value.length) * 100));
         const matchCorrectList = computed(() => matchResults.value.filter(r => r.isCorrect));
         const matchWrongList = computed(() => matchResults.value.filter(r => !r.isCorrect));
 
         // --- 监听器 ---
-        // 监听 useTTS 的初始默认语音，赋予 select 初始值
         watch(englishVoice, (newVoice) => {
             if (newVoice && !selectedVoiceURI.value) {
                 selectedVoiceURI.value = newVoice.voiceURI;
             }
         }, { immediate: true });
 
-        // 监听用户在下拉框中的选择，并更新给底层的 englishVoice
         watch(selectedVoiceURI, (newURI) => {
             if (newURI) {
                 const targetVoice = voices.value.find(v => v.voiceURI === newURI);
@@ -210,7 +241,7 @@ export default {
 
         onMounted(() => { 
             loadMistakesData(); 
-            fetchDecodedWords(); // [新增] 加载已解码列表
+            fetchDecodedWords(); 
         });
 
         const logMistake = async (item) => {
@@ -227,14 +258,51 @@ export default {
         const isPaired = (item) => !!matchPairs.value[item.cardId];
         const isSelected = (item) => matchSelection.value && matchSelection.value.cardId === item.cardId;
 
+        // [新增] 填空听写的智能挖词算法
+        const generateFillBlankSlots = (text) => {
+            const words = text.split(' ');
+            let globalIndex = 0;
+            let slots = [];
+            // 特殊词汇，如果存在于句子中直接全部挖空
+            const targetWords = ['on', 'in', 'at', 'to', 'of', 'the', 'a', 'an', 'and', 'for', 'with', 'by', 'as', 'is', 'am', 'are'];
+            
+            words.forEach((w, wIdx) => {
+                const cleanW = w.toLowerCase().replace(/[^a-z]/g, '');
+                const isTarget = targetWords.includes(cleanW);
+                
+                let charsToBlank = [];
+                if (isTarget) {
+                    for(let i=0; i<w.length; i++) charsToBlank.push(i);
+                } else {
+                    const letterIndices = [];
+                    for(let i=0; i<w.length; i++) {
+                        if (/[a-zA-Z]/.test(w[i])) letterIndices.push(i);
+                    }
+                    // 随机挖空约40%的字母，确保至少挖1个
+                    const numToBlank = Math.max(1, Math.ceil(letterIndices.length * 0.4));
+                    letterIndices.sort(() => Math.random() - 0.5);
+                    charsToBlank = letterIndices.slice(0, numToBlank);
+                }
+
+                for (let i = 0; i < w.length; i++) {
+                    slots.push({
+                        id: globalIndex++,
+                        char: w[i],
+                        isBlank: charsToBlank.includes(i) && /[a-zA-Z]/.test(w[i])
+                    });
+                }
+                
+                if (wIdx < words.length - 1) {
+                    slots.push({ id: globalIndex++, char: ' ', isBlank: false });
+                }
+            });
+            return slots;
+        };
+
         // --- 业务逻辑 ---
-        
-        // AI 记忆解码
-        // [史诗级升级] AI 解码方法：支持本地缓存秒开与流式打字机效果
         const openMemoryDecoder = async (wordStr) => {
             decoderState.value = { show: true, isLoading: true, word: wordStr, content: '', parsedContent: [], isParsed: false };
             decodedWords.value.add(wordStr);
-            // 封装的解析方法：将 AI 生成的完整文本拆解为酷炫三列卡片
             const processContent = (text) => {
                 let cleanStr = text.replace(/```(html)?\n?/gi, '').replace(/```\n?/g, '');
                 const split1 = cleanStr.indexOf('🧩');
@@ -264,31 +332,24 @@ export default {
             };
 
             try {
-                // 读取本地缓存的 API Key
                 const userApiKey = localStorage.getItem('deepseek_api_key') || '';
-
                 const res = await fetch(`${API_BASE}/ai/memory-decoder`,{
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // 将 apiKey 一起发送给后端
                     body: JSON.stringify({ word: wordStr, apiKey: userApiKey })
                 });
                 
                 const contentType = res.headers.get('content-type');
-                
-                // 【情况 1】如果是 JSON 格式，说明命中了本地缓存或发生了网络错误 (0秒秒开)
                 if (contentType && contentType.includes('application/json')) {
                     const data = await res.json();
-                    decoderState.value.isLoading = false; // 取消 Loading
+                    decoderState.value.isLoading = false;
                     if (data.success) {
                         processContent(data.content);
                     } else {
                         decoderState.value.content = `<div class="text-red-400 text-center py-4 text-xl">${data.error}</div>`;
                     }
-                } 
-                // 【情况 2】如果是 Event Stream 格式，进入流式打字机模式
-                else {
-                    decoderState.value.isLoading = false; // 关闭转圈动画，准备开始打字
+                } else {
+                    decoderState.value.isLoading = false; 
                     const reader = res.body.getReader();
                     const decoder = new TextDecoder('utf-8');
                     let fullText = '';
@@ -300,7 +361,7 @@ export default {
                         
                         buffer += decoder.decode(value, { stream: true });
                         const parts = buffer.split('\n\n');
-                        buffer = parts.pop(); // 保留不完整的最后一部分
+                        buffer = parts.pop(); 
                         
                         for (const part of parts) {
                             if (part.startsWith('data: ')) {
@@ -315,15 +376,13 @@ export default {
                                     }
                                     if (parsed.text) {
                                         fullText += parsed.text;
-                                        // 实时渲染打字机效果：加上一个闪烁的光标
                                         let displayStr = fullText.replace(/\n/g, '<br>');
                                         decoderState.value.content = displayStr + '<span class="text-amber-400 animate-pulse ml-1 text-2xl">▎</span>';
                                     }
-                                } catch (e) { /* 忽略解析截断带来的错误 */ }
+                                } catch (e) { }
                             }
                         }
                     }
-                    // AI 全部输出完毕后，瞬间将文字拆解重构成极美的三列排版！
                     processContent(fullText);
                 }
             } catch (err) {
@@ -389,13 +448,11 @@ export default {
 
         const openMistakeBook = async () => { await loadMistakesData(); if (sortedMistakeDates.value.length > 0) selectedMistakeDate.value = sortedMistakeDates.value[0]; showMistakeBook.value = true; };
 
-        // [新增] 打开遗忘曲线模式选择弹窗
         const openEbbinghausModal = () => {
             if (ebbinghausReviewList.value.length === 0) return alert("太棒了！今天没有需要遗忘曲线复习的错词！🎉");
             showEbbinghausModal.value = true;
         };
 
-        // [新增] 确认复习方式并执行
         const confirmEbbinghausReview = (mode) => {
             reciteConfig.value.studyMode = mode;
             reciteConfig.value.order = 'random';
@@ -421,7 +478,6 @@ export default {
             if (reciteConfig.value.mode === 'timed') { reciteTimeRemaining.value = reciteConfig.value.duration * 60; startTimer(); } else { reciteTimeRemaining.value = 0; }
             isReciting.value = true; 
             
-            // 【添加这行防御性代码】
             window.removeEventListener('keydown', handleKeydown); 
             window.addEventListener('keydown', handleKeydown); 
             
@@ -434,10 +490,22 @@ export default {
             clearTimeout(autoNextTimer.value); stopSpeaking(); memorizeSessionId.value++; readSessionId.value++;
             reciteErrorCount.value = 0; reciteInput.value = ''; reciteStatus.value = 'neutral'; showAnswer.value = false;
             
-            if (reciteConfig.value.studyMode === 'read') { showHintMeaning.value = true; showHintWord.value = true; startAutoRead(); } 
-            else if (reciteConfig.value.studyMode === 'memorize') { memorizeStage.value = 0; showHintMeaning.value = true; showHintWord.value = true; startMemorizeFlash(); } 
-            else if (reciteConfig.value.studyMode === 'dictate') { showHintMeaning.value = false; showHintWord.value = false; setTimeout(() => speak(currentReciteWord.value?.word, 'en'), 300); focusInput(); } 
-            else { showHintMeaning.value = true; showHintWord.value = false; focusInput(); }
+            if (reciteConfig.value.studyMode === 'read') { 
+                showHintMeaning.value = true; showHintWord.value = true; startAutoRead(); 
+            } else if (reciteConfig.value.studyMode === 'memorize') { 
+                memorizeStage.value = 0; showHintMeaning.value = true; showHintWord.value = true; startMemorizeFlash(); 
+            } else if (reciteConfig.value.studyMode === 'dictate') { 
+                showHintMeaning.value = false; showHintWord.value = false; setTimeout(() => speak(currentReciteWord.value?.word, 'en'), 300); focusInput(); 
+            } else if (reciteConfig.value.studyMode === 'fillblank') {
+                // [新增] 初始化填空听写
+                showHintMeaning.value = true;
+                showHintWord.value = false;
+                fillBlankSlots.value = generateFillBlankSlots(currentReciteWord.value?.word || '');
+                setTimeout(() => speak(currentReciteWord.value?.word, 'en'), 300);
+                focusInput();
+            } else { 
+                showHintMeaning.value = true; showHintWord.value = false; focusInput(); 
+            }
         };
 
         const startAutoRead = async () => {
@@ -487,9 +555,27 @@ export default {
         const checkReciteAnswer = () => {
             if (!currentReciteWord.value) return;
             if (reciteStatus.value === 'correct') { clearTimeout(autoNextTimer.value); nextWord(); return; }
+            if (showAnswer.value) { addToRetryQueue(); nextWord(); return; }
+            
+            // [新增] 填空听写的校验逻辑
+            if (reciteConfig.value.studyMode === 'fillblank') {
+                const blanks = fillBlankSlots.value.filter(s => s.isBlank);
+                const expected = blanks.map(s => s.char).join('').toLowerCase();
+                const actual = reciteInput.value.toLowerCase();
+                if (actual === expected) {
+                    reciteStatus.value = 'correct'; stopSpeaking(); if (reciteErrorCount.value > 0) addToRetryQueue();
+                    autoNextTimer.value = setTimeout(() => nextWord(), 2000);
+                } else {
+                    reciteStatus.value = 'wrong'; reciteErrorCount.value++; logMistake(currentReciteWord.value);
+                    if (reciteErrorCount.value >= 3) showAnswer.value = true;
+                    focusInput();
+                }
+                return;
+            }
+
             const inputVal = reciteInput.value.trim().toLowerCase(); const targetVal = currentReciteWord.value.word.trim().toLowerCase();
             if (reciteConfig.value.studyMode === 'memorize') { if (memorizeStage.value === 0) return; handleMemorizeCheck(inputVal, targetVal); return; }
-            if (showAnswer.value) { addToRetryQueue(); nextWord(); return; }
+            
             if (inputVal === targetVal) {
                 reciteStatus.value = 'correct'; stopSpeaking(); if (reciteErrorCount.value > 0) addToRetryQueue();
                 autoNextTimer.value = setTimeout(() => nextWord(), 2000);
@@ -504,13 +590,25 @@ export default {
         const addToRetryQueue = () => { const retryItem = { ...currentReciteWord.value, id: Date.now() + Math.random() }; reciteQueue.value.push(retryItem); };
         const nextWord = () => { if (reciteIndex.value < reciteQueue.value.length - 1) { reciteIndex.value++; resetWordState(); } else { if (confirm("学习完成！是否重新开始？")) { if (reciteConfig.value.order === 'random') reciteQueue.value.sort(() => Math.random() - 0.5); reciteIndex.value = 0; resetWordState(); } else { exitRecitation(); } } };
         const prevWord = () => { if (reciteIndex.value > 0) { reciteIndex.value--; resetWordState(); } };
+        
         const handleReciteInput = () => {
             if (reciteConfig.value.studyMode === 'memorize' && memorizeStage.value === 0) { reciteInput.value = ''; return; }
             if (isSpeaking.value) stopSpeaking(); if (reciteStatus.value === 'wrong') reciteStatus.value = 'neutral';
+            
+            // [新增] 填空听写仅允许输入挖空的数量，不需要自动填充空格
+            if (reciteConfig.value.studyMode === 'fillblank') {
+                const blanksCount = fillBlankSlots.value.filter(s => s.isBlank).length;
+                if (reciteInput.value.length > blanksCount) {
+                    reciteInput.value = reciteInput.value.slice(0, blanksCount);
+                }
+                return;
+            }
+
             const target = currentReciteWord.value?.word || ''; let val = reciteInput.value; let newVal = ''; let valIdx = 0;
             for (let i = 0; i < target.length; i++) { if (valIdx >= val.length) break; if (target[i] === ' ') { newVal += ' '; if (val[valIdx] === ' ') valIdx++; } else { newVal += val[valIdx]; valIdx++; } }
             if (newVal !== val) reciteInput.value = newVal;
         };
+
         const handleKeydown = (e) => { if (isReciting.value) { if (e.key === 'ArrowRight') { e.preventDefault(); nextWord(); } else if (e.key === 'ArrowLeft') { e.preventDefault(); prevWord(); } else if (e.key === 'Backspace') { inputRef.value?.focus(); } else if (e.key === 'Tab' && reciteConfig.value.studyMode === 'dictate') { e.preventDefault(); showHintMeaning.value = true; } else if ((e.ctrlKey || e.metaKey)) { e.preventDefault(); replayAudio(); } } };
         const exitRecitation = () => { stopSpeaking(); isReciting.value = false; clearTimeout(autoNextTimer.value); clearInterval(reciteTimer.value); memorizeSessionId.value++; readSessionId.value++; window.removeEventListener('keydown', handleKeydown); if (isEbbinghausReview.value) { isEbbinghausReview.value = false; loadMistakesData(); } };
         const focusInput = () => nextTick(() => inputRef.value?.focus());
@@ -558,7 +656,6 @@ export default {
             startMatchRound(); 
         };
         
-        // [修复] 退出连线游戏时，也要判断是否需要重置艾宾浩斯状态
         const exitMatchGame = () => { 
             isMatchingGame.value = false; 
             matchResults.value = []; 
@@ -570,7 +667,6 @@ export default {
 
         onUnmounted(() => { stopSpeaking(); clearTimeout(autoNextTimer.value); clearInterval(reciteTimer.value); window.removeEventListener('keydown', handleKeydown); });
 
-        // [修复] 确保导出了最新的 openEbbinghausModal 和 confirmEbbinghausReview
         return {
             selectedVoiceURI,
             showCreateModal, isEditingBook, newBookForm, editingId, editForm, localNewWord, isFetching,
@@ -580,12 +676,12 @@ export default {
             filterGrade, filterTerm, filterType, gradeOptions, termOptions, filteredBooksList,
             showReciteSetup, reciteConfig, openReciteSetup, toggleBookSelection, handleStartRecitation,
             isReciting, currentReciteWord, reciteInput, reciteStatus, showAnswer, showHintMeaning, showHintWord,
-            reciteProgress, inputRef, reciteIndex, reciteQueue, wordSlots, reciteTimeRemaining, formatTime,
+            reciteProgress, inputRef, reciteIndex, reciteQueue, wordSlots, fillBlankSlots, fillblankDisplaySlots, reciteTimeRemaining, formatTime,
             handleReciteInput, checkReciteAnswer, exitRecitation, nextWord, prevWord, focusInput,
             isMatchingGame, matchGameMode, matchCurrentRound, matchTotalQueue, matchCol1, matchCol2, matchCol3, matchCol4, matchSelection,
             handleMatchClick, getPairOrder, isPaired, isSelected, submitMatchRound, exitMatchGame, matchCorrectList, matchWrongList,
             memorizeStage, flashCount, voices, selectedVoiceURI, ttsRate, isSpeaking, replayAudio,
-            getSetupTitle: () => ({ 'recite': '默写设置', 'dictate': '听写设置', 'match': '连线测试设置', 'memorize': '背诵设置', 'read': '朗读设置' }[reciteConfig.value.studyMode] || '学习设置'),
+            getSetupTitle: () => ({ 'recite': '默写设置', 'dictate': '听写设置', 'match': '连线测试设置', 'memorize': '背诵设置', 'read': '朗读设置', 'fillblank': '填空听写设置' }[reciteConfig.value.studyMode] || '学习设置'),
             showMistakeBook, mistakeList, mistakeGroups, selectedMistakeDate, sortedMistakeDates, openMistakeBook,
             ebbinghausReviewList, isEbbinghausReview, showEbbinghausModal, openEbbinghausModal, confirmEbbinghausReview,
             autoFillPhonetic: fetchPhonetic, isFetchingPhonetic: isFetching, handleUpdateAllPhonetics, isUpdatingPhonetics,
@@ -704,6 +800,17 @@ export default {
                             <div class="flex flex-col min-w-0">
                                 <h4 class="font-bold text-sm leading-tight text-slate-200 group-hover:text-white transition">听写单词</h4>
                                 <p class="text-[10px] text-purple-200/60 mt-1 truncate">听发音 · 拼写英文</p>
+                            </div>
+                            <i class="fas fa-chevron-right ml-auto text-[10px] text-white/10 group-hover:text-white/50 transition"></i>
+                        </button>
+
+                        <button @click="openReciteSetup('fillblank')" class="group bg-white/5 hover:bg-white/10 border border-white/5 hover:border-teal-500/30 rounded-2xl p-3 text-left transition-all hover:-translate-y-0.5 active:translate-y-0 shadow-sm flex items-center gap-4 w-full">
+                            <div class="w-12 h-12 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-xl transition group-hover:bg-teal-500 group-hover:text-white shrink-0 shadow-lg shadow-teal-500/0 group-hover:shadow-teal-500/30">
+                                <i class="fas fa-spell-check"></i>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <h4 class="font-bold text-sm leading-tight text-slate-200 group-hover:text-white transition">填空听写</h4>
+                                <p class="text-[10px] text-teal-200/60 mt-1 truncate">挖空测听 · 针对强化</p>
                             </div>
                             <i class="fas fa-chevron-right ml-auto text-[10px] text-white/10 group-hover:text-white/50 transition"></i>
                         </button>
@@ -905,6 +1012,11 @@ export default {
                         <div class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center text-xl transition group-hover:bg-indigo-500 group-hover:text-white"><i class="fas fa-pencil-alt"></i></div>
                         <span class="font-bold text-sm text-slate-600 group-hover:text-indigo-700">默写单词</span>
                     </button>
+
+                    <button @click="confirmEbbinghausReview('fillblank')" class="group bg-slate-50 hover:bg-teal-50 border border-slate-100 hover:border-teal-200 rounded-2xl p-4 text-center transition-all hover:-translate-y-1 shadow-sm flex flex-col items-center justify-center gap-3 col-span-2">
+                        <div class="w-12 h-12 rounded-full bg-teal-100 text-teal-500 flex items-center justify-center text-xl transition group-hover:bg-teal-500 group-hover:text-white"><i class="fas fa-spell-check"></i></div>
+                        <span class="font-bold text-sm text-slate-600 group-hover:text-teal-700">填空听写 (查漏补缺)</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1006,11 +1118,11 @@ export default {
         <div v-if="showReciteSetup" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
             <div class="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl scale-up text-slate-800 flex flex-col max-h-[90vh]">
                 <h3 class="text-2xl font-bold mb-6 flex items-center gap-2">
-                    <i class="fas" :class="{'fa-pencil-alt text-indigo-500': reciteConfig.studyMode === 'recite', 'fa-headphones text-purple-500': reciteConfig.studyMode === 'dictate', 'fa-project-diagram text-emerald-500': reciteConfig.studyMode === 'match', 'fa-brain text-pink-500': reciteConfig.studyMode === 'memorize', 'fa-volume-up text-blue-500': reciteConfig.studyMode === 'read'}"></i> 
+                    <i class="fas" :class="{'fa-pencil-alt text-indigo-500': reciteConfig.studyMode === 'recite', 'fa-headphones text-purple-500': reciteConfig.studyMode === 'dictate', 'fa-project-diagram text-emerald-500': reciteConfig.studyMode === 'match', 'fa-brain text-pink-500': reciteConfig.studyMode === 'memorize', 'fa-volume-up text-blue-500': reciteConfig.studyMode === 'read', 'fa-spell-check text-teal-500': reciteConfig.studyMode === 'fillblank'}"></i> 
                     {{ getSetupTitle() }}
                 </h3>
                 <div class="space-y-6 overflow-y-auto px-1 custom-scrollbar">
-                    <div v-if="['dictate', 'memorize', 'read'].includes(reciteConfig.studyMode)" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-fade-in space-y-4">
+                    <div v-if="['dictate', 'memorize', 'read', 'fillblank'].includes(reciteConfig.studyMode)" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-fade-in space-y-4">
                         <div><label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">发音 Voice</label><select v-model="selectedVoiceURI" class="w-full text-sm p-2.5 rounded-xl border border-slate-200 bg-white outline-none focus:border-indigo-500"><option v-for="v in voices" :value="v.voiceURI">{{ v.name }}</option></select></div>
                         <div><label class="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">语速 Speed ({{ ttsRate }}x)</label><input type="range" v-model.number="ttsRate" min="0.5" max="2" step="0.1" class="w-full accent-indigo-500 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"></div>
                         <div v-if="reciteConfig.studyMode === 'read'" class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
@@ -1103,11 +1215,11 @@ export default {
         
         <div v-if="isReciting" class="fixed inset-0 bg-white z-[100] flex flex-col animate-fade-in" @click="focusInput">
             <div class="h-2 bg-slate-100 w-full">
-                <div class="h-full transition-all duration-300 ease-out" :class="{'bg-indigo-500':reciteConfig.studyMode==='recite', 'bg-purple-500':reciteConfig.studyMode==='dictate', 'bg-pink-500':reciteConfig.studyMode==='memorize', 'bg-blue-500':reciteConfig.studyMode==='read'}" :style="{ width: reciteProgress + '%' }"></div>
+                <div class="h-full transition-all duration-300 ease-out" :class="{'bg-indigo-500':reciteConfig.studyMode==='recite', 'bg-purple-500':reciteConfig.studyMode==='dictate', 'bg-pink-500':reciteConfig.studyMode==='memorize', 'bg-blue-500':reciteConfig.studyMode==='read', 'bg-teal-500':reciteConfig.studyMode==='fillblank'}" :style="{ width: reciteProgress + '%' }"></div>
             </div>
             <div class="p-6 flex justify-between items-center">
                 <div class="text-slate-400 font-bold text-sm">
-                    <span :class="{'text-indigo-600':reciteConfig.studyMode==='recite', 'text-purple-600':reciteConfig.studyMode==='dictate', 'text-pink-600':reciteConfig.studyMode==='memorize', 'text-blue-600':reciteConfig.studyMode==='read'}">{{ reciteIndex + 1 }}</span> / {{ reciteQueue.length }}
+                    <span :class="{'text-indigo-600':reciteConfig.studyMode==='recite', 'text-purple-600':reciteConfig.studyMode==='dictate', 'text-pink-600':reciteConfig.studyMode==='memorize', 'text-blue-600':reciteConfig.studyMode==='read', 'text-teal-600':reciteConfig.studyMode==='fillblank'}">{{ reciteIndex + 1 }}</span> / {{ reciteQueue.length }}
                 </div>
                 <button @click="exitRecitation" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center transition"><i class="fas fa-times"></i></button>
             </div>
@@ -1142,6 +1254,17 @@ export default {
                     <div class="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-500 rounded-full text-sm font-bold"><i class="fas fa-headphones"></i> Listen & Type (听发音拼写)</div>
                 </div>
                 
+                <div v-if="reciteConfig.studyMode === 'fillblank'" class="mb-8 scale-up w-full flex flex-col items-center">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 text-teal-500 rounded-full text-sm font-bold mb-6">
+                        <i class="fas fa-spell-check"></i> Fill in the Blanks (填空听写)
+                    </div>
+                    
+                    <button @click="replayAudio" class="px-6 py-3 bg-white border-2 border-slate-200 hover:border-teal-400 hover:text-teal-500 text-slate-500 rounded-2xl font-bold shadow-sm transition flex items-center gap-2 group active:scale-95">
+                        <i class="fas fa-volume-up text-xl group-hover:scale-110 transition"></i> 
+                        没听清？再听一次 (Replay)
+                    </button>
+                </div>
+
                 <div v-if="reciteConfig.studyMode === 'memorize' && memorizeStage > 0" class="mb-6 scale-up">
                     <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-colors" :class="{'bg-blue-50 text-blue-500': memorizeStage===1, 'bg-purple-50 text-purple-500': memorizeStage===2, 'bg-orange-50 text-orange-500': memorizeStage===3}">
                         <span v-if="memorizeStage===1">Stage 1: 临摹 (Copy)</span>
@@ -1160,9 +1283,21 @@ export default {
                 
                 <div class="relative w-full flex justify-center mb-8">
                     <input ref="inputRef" v-model="reciteInput" @input="handleReciteInput" @keyup.enter="checkReciteAnswer" type="text" autocomplete="off" spellcheck="false" :maxlength="currentReciteWord?.word.length" class="absolute inset-0 opacity-0 cursor-default caret-transparent z-0">
-                    <div class="flex flex-wrap justify-center gap-3 z-10 pointer-events-none">
+                    
+                    <div v-if="reciteConfig.studyMode !== 'fillblank'" class="flex flex-wrap justify-center gap-3 z-10 pointer-events-none">
                         <div v-for="(slot, index) in wordSlots" :key="index" class="flex items-end justify-center transition-all duration-200" :class="[slot.isSpace ? 'w-6 border-b-0' : 'w-10 md:w-14 border-b-4 h-16 md:h-20', slot.isSpace ? '' : (reciteStatus === 'wrong' ? 'border-red-400 text-red-500' : (reciteStatus === 'correct' ? 'border-emerald-400 text-emerald-500' : (slot.isActive ? (reciteConfig.studyMode==='memorize' ? (memorizeStage===1?'border-blue-500':(memorizeStage===2?'border-purple-500':'border-orange-500')) : (reciteConfig.studyMode==='dictate'?'border-purple-500':'border-indigo-500')) : 'border-slate-200 text-slate-800')))]">
                             <span class="text-4xl md:text-5xl font-bold font-mono pb-2" :class="{'animate-bounce-slow': slot.isActive && reciteStatus === 'neutral'}">{{ slot.val }}</span>
+                        </div>
+                    </div>
+
+                    <div v-else class="flex flex-wrap justify-center gap-2 md:gap-3 z-10 pointer-events-none">
+                        <div v-for="slot in fillblankDisplaySlots" :key="slot.id" 
+                             class="flex items-end justify-center transition-all duration-200" 
+                             :class="[slot.char === ' ' ? 'w-4 md:w-6 border-b-0' : (slot.isBlank ? 'w-8 md:w-12 border-b-4 h-14 md:h-16' : 'w-auto px-1 border-b-0 h-14 md:h-16 items-center flex'), slot.char !== ' ' && slot.isBlank ? (reciteStatus === 'wrong' ? 'border-red-400 text-red-500' : (reciteStatus === 'correct' ? 'border-emerald-400 text-emerald-500' : (slot.isActive ? 'border-teal-500' : 'border-slate-300 text-teal-600'))) : 'text-slate-800']">
+                            <span class="text-3xl md:text-5xl font-bold font-mono" 
+                                  :class="{'pb-2': slot.isBlank, 'animate-bounce-slow': slot.isActive && reciteStatus === 'neutral', 'text-slate-400': !slot.isBlank && slot.char !== ' '}">
+                                {{ slot.isBlank ? slot.displayChar : slot.char }}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -1177,10 +1312,10 @@ export default {
                     </div>
                 </div>
                 
-                <div v-if="showAnswer" class="mt-8 p-6 rounded-xl animate-fade-in w-full max-w-md mx-auto border" :class="{'bg-indigo-50 border-indigo-100':reciteConfig.studyMode==='recite', 'bg-purple-50 border-purple-100':reciteConfig.studyMode==='dictate', 'bg-pink-50 border-pink-100':reciteConfig.studyMode==='memorize'}">
-                    <p class="text-xs font-bold uppercase mb-1" :class="{'text-indigo-400':reciteConfig.studyMode==='recite', 'text-purple-400':reciteConfig.studyMode==='dictate', 'text-pink-400':reciteConfig.studyMode==='memorize'}">Answer</p>
-                    <p class="text-3xl font-black tracking-wide select-all" :class="{'text-indigo-600':reciteConfig.studyMode==='recite', 'text-purple-600':reciteConfig.studyMode==='dictate', 'text-pink-600':reciteConfig.studyMode==='memorize'}">{{ currentReciteWord?.word }}</p>
-                    <p class="text-xs mt-2" :class="{'text-indigo-400':reciteConfig.studyMode==='recite', 'text-purple-400':reciteConfig.studyMode==='dictate', 'text-pink-400':reciteConfig.studyMode==='memorize'}">Type it correctly to continue</p>
+                <div v-if="showAnswer" class="mt-8 p-6 rounded-xl animate-fade-in w-full max-w-md mx-auto border" :class="{'bg-indigo-50 border-indigo-100':reciteConfig.studyMode==='recite', 'bg-purple-50 border-purple-100':reciteConfig.studyMode==='dictate', 'bg-pink-50 border-pink-100':reciteConfig.studyMode==='memorize', 'bg-teal-50 border-teal-100':reciteConfig.studyMode==='fillblank'}">
+                    <p class="text-xs font-bold uppercase mb-1" :class="{'text-indigo-400':reciteConfig.studyMode==='recite', 'text-purple-400':reciteConfig.studyMode==='dictate', 'text-pink-400':reciteConfig.studyMode==='memorize', 'text-teal-400':reciteConfig.studyMode==='fillblank'}">Answer</p>
+                    <p class="text-3xl font-black tracking-wide select-all" :class="{'text-indigo-600':reciteConfig.studyMode==='recite', 'text-purple-600':reciteConfig.studyMode==='dictate', 'text-pink-600':reciteConfig.studyMode==='memorize', 'text-teal-600':reciteConfig.studyMode==='fillblank'}">{{ currentReciteWord?.word }}</p>
+                    <p class="text-xs mt-2" :class="{'text-indigo-400':reciteConfig.studyMode==='recite', 'text-purple-400':reciteConfig.studyMode==='dictate', 'text-pink-400':reciteConfig.studyMode==='memorize', 'text-teal-400':reciteConfig.studyMode==='fillblank'}">Type it correctly to continue</p>
                 </div>
             </div>
             <button @click.stop="prevWord" class="fixed left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center transition" :class="{'opacity-50 cursor-not-allowed': reciteIndex === 0}"><i class="fas fa-chevron-left"></i></button>
