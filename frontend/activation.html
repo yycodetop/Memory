@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Pro - 系统授权认证</title>
+    <style>
+        :root {
+            --primary-color: #00d2ff;
+            --secondary-color: #3a7bd5;
+            --bg-dark: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        /* 背景装饰发光球 */
+        .blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(180deg, rgba(0, 210, 255, 0.4) 0%, rgba(58, 123, 213, 0.1) 100%);
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+            animation: float 10s infinite ease-in-out alternate;
+        }
+
+        @keyframes float {
+            0% { transform: translate(-50px, -50px) scale(1); }
+            100% { transform: translate(50px, 50px) scale(1.1); }
+        }
+
+        /* 毛玻璃卡片主体 */
+        .glass-card {
+            position: relative;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            background: -webkit-linear-gradient(right, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* 表单区域 */
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--text-main);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+        }
+
+        input[readonly] {
+            color: var(--primary-color);
+            letter-spacing: 1px;
+        }
+
+        button {
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-action {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 0 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-action:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
+            color: white;
+            font-size: 16px;
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+        }
+
+        .btn-submit:hover {
+            box-shadow: 0 6px 20px rgba(0, 210, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* 状态提示 */
+        .status-msg {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 13px;
+            min-height: 20px;
+            transition: opacity 0.3s ease;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: var(--primary-color); }
+    </style>
+</head>
+<body>
+
+    <div class="blob"></div>
+
+    <div class="glass-card">
+        <div class="header">
+            <h1>Memory OS</h1>
+            <p>系统环境安全验证</p>
+        </div>
+
+        <div class="form-group">
+            <label>本地机器码 (Machine Code)</label>
+            <div class="input-wrapper">
+                <input type="text" id="machineCodeInput" readonly placeholder="点击右侧读取机器码">
+                <!-- <button class="btn-action" id="readBtn">读取</button> -->
+                <!-- <button class="btn-action" id="copyBtn" style="display: none;">复制</button> -->
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>授权验证码 (Activation Code)</label>
+            <div class="input-wrapper">
+                <input type="text" id="authCodeInput" placeholder="请输入管理员提供的验证码">
+            </div>
+        </div>
+
+        <button class="btn-submit" id="verifyBtn">验证并进入系统</button>
+        
+        <div class="status-msg" id="statusMessage"></div>
+    </div>
+
+    <script>
+        const machineCodeInput = document.getElementById('machineCodeInput');
+        const authCodeInput = document.getElementById('authCodeInput');
+        const readBtn = document.getElementById('readBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        function showMessage(msg, type) {
+            statusMessage.textContent = msg;
+            statusMessage.className = `status-msg ${type}`;
+            setTimeout(() => { statusMessage.textContent = ''; }, 3000);
+        }
+
+        // 1. 读取机器码功能
+        readBtn.addEventListener('click', async () => {
+            readBtn.textContent = '读取中...';
+            
+            // 【重要提示】：纯前端浏览器 JS 无法直接读取真实的硬件机器码（如 CPU/MAC 地址）。
+            // 既然你打包成 .exe，你需要在这里调用 Electron (IPC) 或 Tauri 的后端 API。
+            // 这里用 setTimeout 模拟异步获取机器码的过程：
+            setTimeout(() => {
+                // 模拟生成的机器码：例如 MEM-CPU-xxxxxx
+                const mockMachineCode = "MEM-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+                
+                machineCodeInput.value = mockMachineCode;
+                readBtn.style.display = 'none';
+                copyBtn.style.display = 'block'; // 显示复制按钮
+                showMessage('机器码读取成功', 'success');
+            }, 600);
+        });
+
+        // 2. 复制机器码功能
+        copyBtn.addEventListener('click', () => {
+            if (!machineCodeInput.value) return;
+            navigator.clipboard.writeText(machineCodeInput.value).then(() => {
+                showMessage('机器码已复制，请发送给管理员', 'info');
+            }).catch(() => {
+                showMessage('复制失败，请手动选择复制', 'error');
+            });
+        });
+
+        // 3. 验证并进入系统
+        verifyBtn.addEventListener('click', () => {
+            const machineCode = machineCodeInput.value;
+            const authCode = authCodeInput.value;
+
+            if (!machineCode) {
+                showMessage('请先读取机器码', 'error');
+                return;
+            }
+            if (!authCode) {
+                showMessage('请输入授权验证码', 'error');
+                return;
+            }
+
+            verifyBtn.textContent = '验证中...';
+
+            // 【重要提示】：这里需要加入你的验证逻辑（例如将验证码解密，比对机器码等）
+            // 这里演示通过验证的逻辑：
+            setTimeout(() => {
+                // 假设验证码只要等于机器码倒序就通过 (你可以换成自己的加解密算法)
+                const isValid = true; // 替换为真实校验结果
+
+                if (isValid) {
+                    showMessage('授权验证成功！正在启动系统...', 'success');
+                    // 将授权状态写入本地配置 (localStorage 或写入后端本地 JSON)
+                    localStorage.setItem('memory_is_activated', 'true');
+                    
+                    // 延迟后跳转至主系统界面
+                    setTimeout(() => {
+                        window.location.href = './frontend/index.html'; // 替换为你系统的入口路径
+                    }, 1500);
+                } else {
+                    verifyBtn.textContent = '验证并进入系统';
+                    showMessage('验证码无效或已过期，请重试', 'error');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
